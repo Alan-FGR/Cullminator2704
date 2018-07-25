@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
+using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
 using System.Threading.Tasks;
@@ -24,6 +25,7 @@ struct Sphere
     public float radius;
 
 #if SIMD
+    private UInt32 pad;
     public void UpdateCaches(Vector3 position)
     {
         simdCacheX = Sse.SetAllVector128(position.X);
@@ -58,19 +60,53 @@ struct Planes
     public Vector128<float> x, y, z, w;
 }
 
-class Program
+unsafe class Program
 {
-    Sphere[] spheres;
+    private IntPtr spheresPtr;
     private Frustum culler;
+
+    const int width = 100; //100
+    const int height = 50; //6
+    const float spacing = 2;
+    const int elcount = width * width * height;
+    const int datasize = 72 * elcount;
 
     public Program()
     {
         //add stuff to cull
-        const int width = 100; //100
-        const int height = 50; //6
-        const float spacing = 2;
 
-        spheres = new Sphere[width * width * height];
+
+
+        var spanTestPtr = Marshal.AllocHGlobal(sizeof(int) * 10);
+        var intSpan = new Span<int>((void*)spanTestPtr, 10);
+        for (int i = 0; i < 10; i++)
+        {
+            intSpan[i] = i;
+        }
+        for (int i = 0; i < 10; i++)
+        {
+            var readval = intSpan[i];
+        }
+
+
+
+        var spanTestSphPtr = Marshal.AllocHGlobal(72 * 10);
+        var sphSpan = new Span<Sphere>((void*)spanTestSphPtr, 10);
+        for (int i = 0; i < 10; i++)
+        {
+            var sphere = new Sphere(){radius = i};
+            sphSpan[i] = sphere;
+        }
+        for (int i = 0; i < 10; i++)
+        {
+            var readval = sphSpan[i];
+        }
+
+
+
+        spheresPtr = Marshal.AllocHGlobal(datasize);
+        
+        Span<Sphere> span = new Span<Sphere>((void*)spheresPtr, elcount);
 
         var r = new Random();
 
@@ -92,8 +128,7 @@ class Program
 #else
                     s.position = position;
 #endif
-
-                    spheres[c++] = s;
+                    span[c++] = s;
                 }
 
         //add cullers
@@ -205,13 +240,15 @@ class Program
 
         var tp = Stopwatch.StartNew();
 
+        Span<Sphere> span = new Span<Sphere>((void*)spheresPtr, elcount);
+
         if (true) //simd)
         {
-            for (var i = 0; i < spheres.Length; i++)
+            for (var i = 0; i < elcount; i++)
             //Parallel.For(0, spheres.Length, (i, e) =>
             {
 #if SIMD
-                simdCull(spheres[i], planes);
+                simdCull(span[i], planes);
 #else
                 naiveCull(spheres[i], left, right, top, bottom);
 #endif
