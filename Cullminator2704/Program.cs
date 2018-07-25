@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
+using System.Threading.Tasks;
 
 struct Sphere
 {
@@ -51,7 +52,7 @@ class Program
     {
         //add stuff to cull
         const int width = 100; //100
-        const int height = 100; //6
+        const int height = 6; //6
         const float spacing = 2;
 
         var r = new Random();
@@ -80,7 +81,7 @@ class Program
     //    return plane.x * pos.x + plane.y * pos.y + plane.z * pos.z + plane.w <= -radius;
     //}
 
-    static Vector128<float> SseAdd(Vector128<float> a, Vector128<float> b, Vector128<float> c, Vector128<float> d)
+    static Vector128<float> SseAdd(in Vector128<float> a, in Vector128<float> b, in Vector128<float> c, in Vector128<float> d)
     {
         return Sse.Add(Sse.Add(a, b), Sse.Add(c, d));
     }
@@ -187,10 +188,12 @@ class Program
 
         if (true) //simd)
         {
-            foreach (Sphere sphere in spheres)
+            for (var i = 0; i < spheres.Count; i++)
+            //Parallel.For(0, spheres.Count, (i, e) =>
             {
-                simdCull(sphere, planes);
+                simdCull(spheres[i], planes);
             }
+            //);
         }
         else
         {
@@ -250,7 +253,7 @@ class Program
     {
         var p = new Program();
 
-        for (int i = 0; i < 10; i++)
+        for (int i = 0; i < 100; i++)
         {
             p.Update();
         }
